@@ -1,0 +1,135 @@
+from datetime import datetime, date
+
+
+class AttendanceRepository:
+    def __init__(self, pool):
+        self.pool = pool
+
+    async def clock_in(self, employee_id):
+        today = date.today()
+        now = datetime.now()
+        async with self.pool.acquire() as conn:
+            existing = await conn.fetchrow(
+                "SELECT * FROM attendance WHERE employee_id = $1 AND attendance_date = $2",
+                employee_id, today
+            )
+            if existing:
+                if existing['clock_in'] is not None:
+                    return None, "already_clocked_in"
+                await conn.execute(
+                    "UPDATE attendance SET clock_in = $1, status = 'Present' WHERE employee_id = $2 AND attendance_date = $3",
+                    now, employee_id, today
+                )
+            else:
+                await conn.execute(
+                    """INSERT INTO attendance (employee_id, attendance_date, clock_in, status)
+                       VALUES ($1, $2, $3, 'Present')""",
+                    employee_id, today, now
+                )
+            return now, "ok"
+
+    async def clock_out(self, employee_id):
+        today = date.today()
+        now = datetime.now()
+        async with self.pool.acquire() as conn:
+            record = await conn.fetchrow(
+                "SELECT * FROM attendance WHERE employee_id = $1 AND attendance_date = $2",
+                employee_id, today
+            )
+            if not record or not record['clock_in']:
+                return None, None, None, "not_clocked_in"
+            if record['clock_out']:
+                return None, None, None, "already_clocked_out"
+
+            total_minutes = int((now - record['clock_in']).total_seconds() / 60)
+            await conn.execute(
+                """UPDATE attendance SET clock_out = $1, total_minutes = $2
+                   WHERE employee_id = $3 AND attendance_date = $4""",
+                now, total_minutes, employee_id, today
+            )
+            return record['clock_in'], now, total_minutes, "ok"
+
+    async def get_today_all(self):
+        today = date.today()
+        async with self.pool.acquire() as conn:
+            return await conn.fetch(
+                """SELECT a.*, e.full_name FROM attendance a
+                   JOIN employees e ON a.employee_id = e.employee_id
+                   WHERE a.attendance_date = $1 ORDER BY a.clock_in""",
+                today
+            )
+
+    async def get_employee_today(self, employee_id):
+        today = date.today()
+        async with self.pool.acquire() as conn:
+            return await conn.fetchrow(
+                "SELECT * FROM attendance WHERE employee_id = $1 AND attendance_date = $2",
+                employee_id, today
+            )
+
+    async def get_employee_monthly(self, employee_id, year, month):
+        async with self.pool.acquire() as conn:
+            return await conn.fetch(
+                """SELECT * FROM attendance
+                   WHERE employee_id = $1
+                   AND EXTRACT(YEAR FROM attendance_date) = $2
+                   AND EXTRACT(MONTH FROM attendance_date) = $3
+                   ORDER BY attendance_date""",
+                employee_id, year, month
+            )
+
+    async def get_monthly_all(self, year, month):
+        async with self.pool.acquire() as conn:
+            return await conn.fetch(
+                """SELECT a.*, e.full_name FROM attendance a
+                   JOIN employees e ON a.employee_id = e.employee_id
+                   WHERE EXTRACT(YEAR FROM a.attendance_date) = $1
+                   AND EXTRACT(MONTH FROM a.attendance_date) = $2
+                   ORDER BY a.attendance_date, e.employee_id""",
+                year, month
+            )
+
+    async def edit_clock_in(self, employee_id, target_date, new_time):
+        async with self.pool.acquire() as conn:
+            record = await conn.fetchrow(
+                "SELECT * FROM attendance WHERE employee_id = $1 AND attendance_date = $2",
+                employee_id, target_date
+            )
+            old_value = str(record['clock_in']) if record and record['clock_in'] else "None"
+
+            if record:
+                total_minutes = None
+                if record['clock_out']:
+                    total_minutes = int((record['clock_out'] - new_time).total_seconds() / 60)
+                await conn.execute(
+                    """UPDATE attendance SET clock_in = $1, total_minutes = $2, status = 'Manual Edit'
+                       WHERE employee_id = $3 AND attendance_date = $4""",
+                    new_time, total_minutes, employee_id, target_date
+                )
+            else:
+                await conn.execute(
+                    """INSERT INTO attendance (employee_id, attendance_date, clock_in, status)
+                       VALUES ($1, $2, $3, 'Manual Edit')""",
+                    employee_id, target_date, new_time
+                )
+            return old_value
+
+    async def edit_clock_out(self, employee_id, target_date, new_time):
+        async with self.pool.acquire() as conn:
+            record = await conn.fetchrow(
+                "SELECT * FROM attendance WHERE employee_id = $1 AND attendance_date = $2",
+                employee_id, target_date
+            )
+            old_value = str(record['clock_out']) if record and record['clock_out'] else "None"
+
+            total_minutes = None
+            if record and record['clock_in']:
+                total_minutes = int((new_time - record['clock_in']).total_seconds() / 60)
+
+            if record:
+                await conn.execute(
+                    """UPDATE attendance SET clock_out = $1, total_minutes = $2, status = 'Manual Edit'
+                       WHERE employee_id = $3 AND attendance_date = $4""",
+                    new_time, total_minutes, employee_id, target_date
+                )
+            return old_value
