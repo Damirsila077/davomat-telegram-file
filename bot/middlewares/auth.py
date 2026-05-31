@@ -5,10 +5,19 @@ from typing import Callable, Dict, Any, Awaitable
 
 
 ADMIN_IDS = [int(x) for x in os.getenv("ADMIN_IDS", "").split(",") if x.strip()]
+SUB_ADMIN_IDS = [int(x) for x in os.getenv("SUB_ADMIN_IDS", "").split(",") if x.strip()]
 
 
 def is_admin(user_id: int) -> bool:
     return user_id in ADMIN_IDS
+
+
+def is_sub_admin(user_id: int) -> bool:
+    return user_id in SUB_ADMIN_IDS
+
+
+def is_any_admin(user_id: int) -> bool:
+    return is_admin(user_id) or is_sub_admin(user_id)
 
 
 class AllowedAccountMiddleware(BaseMiddleware):
@@ -23,7 +32,7 @@ class AllowedAccountMiddleware(BaseMiddleware):
     ) -> Any:
         if isinstance(event, Message):
             user = event.from_user
-            if user and is_admin(user.id):
+            if user and is_any_admin(user.id):
                 return await handler(event, data)
 
             username = user.username if user else None

@@ -5,7 +5,7 @@ from aiogram.fsm.state import State, StatesGroup
 from datetime import datetime, date
 
 from bot.keyboards.keyboards import *
-from bot.middlewares.auth import is_admin
+from bot.middlewares.auth import is_admin, is_sub_admin, is_any_admin
 from repositories.employee_repo import EmployeeRepository
 from repositories.attendance_repo import AttendanceRepository
 from repositories.other_repos import AllowedAccountsRepository, AuditLogRepository
@@ -95,14 +95,14 @@ async def go_back(message: Message, state: FSMContext):
 
 @router.message(F.text == "👥 Xodimlar")
 async def employees_menu(message: Message):
-    if not is_admin(message.from_user.id):
+    if not is_any_admin(message.from_user.id):
         return
     await message.answer("👥 Xodimlar boshqaruvi:", reply_markup=employee_management_keyboard())
 
 
 @router.message(F.text == "➕ Xodim qo'shish")
 async def add_employee_start(message: Message, state: FSMContext):
-    if not is_admin(message.from_user.id):
+    if not is_any_admin(message.from_user.id):
         return
     await state.set_state(AddEmployeeState.employee_id)
     await message.answer("🆔 Xodim ID raqamini kiriting (masalan: 1001):", reply_markup=cancel_keyboard())
@@ -153,7 +153,7 @@ async def add_employee_pin(message: Message, state: FSMContext, employee_repo: E
 
 @router.message(F.text == "📋 Xodimlar ro'yxati")
 async def list_employees(message: Message, employee_repo: EmployeeRepository):
-    if not is_admin(message.from_user.id):
+    if not is_any_admin(message.from_user.id):
         return
     employees = await employee_repo.get_all()
     if not employees:
@@ -168,7 +168,7 @@ async def list_employees(message: Message, employee_repo: EmployeeRepository):
 
 @router.message(F.text == "🗑️ Xodimni o'chirish")
 async def delete_employee_start(message: Message, state: FSMContext):
-    if not is_admin(message.from_user.id):
+    if not is_any_admin(message.from_user.id):
         return
     await state.set_state(DeleteEmployeeState.employee_id)
     await message.answer("🆔 O'chirish uchun xodim ID sini kiriting:", reply_markup=cancel_keyboard())
@@ -195,14 +195,14 @@ async def delete_employee(message: Message, state: FSMContext, employee_repo: Em
 
 @router.message(F.text == "📋 Hisobotlar")
 async def reports_menu(message: Message):
-    if not is_admin(message.from_user.id):
+    if not is_any_admin(message.from_user.id):
         return
     await message.answer("📋 Hisobotlar:", reply_markup=report_keyboard())
 
 
 @router.message(F.text == "📅 Bugungi hisobot")
 async def daily_report(message: Message, attendance_repo: AttendanceRepository):
-    if not is_admin(message.from_user.id):
+    if not is_any_admin(message.from_user.id):
         return
     records = await attendance_repo.get_today_all()
     if not records:
@@ -218,7 +218,7 @@ async def daily_report(message: Message, attendance_repo: AttendanceRepository):
 
 @router.message(F.text == "📆 Oylik hisobot")
 async def monthly_report(message: Message, attendance_repo: AttendanceRepository):
-    if not is_admin(message.from_user.id):
+    if not is_any_admin(message.from_user.id):
         return
     now = datetime.now()
     records = await attendance_repo.get_monthly_all(now.year, now.month)
@@ -245,14 +245,14 @@ async def monthly_report(message: Message, attendance_repo: AttendanceRepository
 
 @router.message(F.text == "📁 Excel export")
 async def export_menu(message: Message):
-    if not is_admin(message.from_user.id):
+    if not is_any_admin(message.from_user.id):
         return
     await message.answer("📁 Export turi:", reply_markup=export_keyboard())
 
 
 @router.message(F.text.in_({"📤 Bugungi export", "📤 Haftalik export", "📤 Oylik export"}))
 async def do_export(message: Message, attendance_repo: AttendanceRepository):
-    if not is_admin(message.from_user.id):
+    if not is_any_admin(message.from_user.id):
         return
     now = datetime.now()
 
@@ -286,14 +286,14 @@ async def do_export(message: Message, attendance_repo: AttendanceRepository):
 
 @router.message(F.text == "✏️ Davomat tahrirlash")
 async def edit_attendance_menu(message: Message):
-    if not is_admin(message.from_user.id):
+    if not is_any_admin(message.from_user.id):
         return
     await message.answer("✏️ Davomat tahrirlash:", reply_markup=edit_attendance_keyboard())
 
 
 @router.message(F.text.in_({"⏰ Kelish vaqtini tahrirlash", "⏰ Ketish vaqtini tahrirlash"}))
 async def edit_attendance_start(message: Message, state: FSMContext):
-    if not is_admin(message.from_user.id):
+    if not is_any_admin(message.from_user.id):
         return
     field = "clock_in" if "Kelish" in message.text else "clock_out"
     await state.update_data(field=field)
@@ -374,14 +374,14 @@ async def edit_att_time(message: Message, state: FSMContext, attendance_repo: At
 
 @router.message(F.text == "🔐 Ruxsat etilgan akkauntlar")
 async def allowed_accounts_menu(message: Message):
-    if not is_admin(message.from_user.id):
+    if not is_any_admin(message.from_user.id):
         return
     await message.answer("🔐 Ruxsat etilgan akkauntlar:", reply_markup=allowed_accounts_keyboard())
 
 
 @router.message(F.text == "📋 Akkauntlar ro'yxati")
 async def list_accounts(message: Message, accounts_repo: AllowedAccountsRepository):
-    if not is_admin(message.from_user.id):
+    if not is_any_admin(message.from_user.id):
         return
     accounts = await accounts_repo.get_all()
     if not accounts:
@@ -396,7 +396,7 @@ async def list_accounts(message: Message, accounts_repo: AllowedAccountsReposito
 
 @router.message(F.text == "➕ Akkaunt qo'shish")
 async def add_account_start(message: Message, state: FSMContext):
-    if not is_admin(message.from_user.id):
+    if not is_any_admin(message.from_user.id):
         return
     await state.set_state(AddAccountState.username)
     await message.answer("📝 Telegram username kiriting (@username):", reply_markup=cancel_keyboard())
@@ -419,7 +419,7 @@ async def add_account(message: Message, state: FSMContext, accounts_repo: Allowe
 
 @router.message(F.text == "🗑️ Akkaunt o'chirish")
 async def remove_account_start(message: Message, state: FSMContext):
-    if not is_admin(message.from_user.id):
+    if not is_any_admin(message.from_user.id):
         return
     await state.set_state(RemoveAccountState.username)
     await message.answer("📝 O'chirish uchun username kiriting:", reply_markup=cancel_keyboard())
@@ -441,7 +441,7 @@ async def remove_account(message: Message, state: FSMContext, accounts_repo: All
 
 @router.message(F.text == "📜 Audit log")
 async def audit_log(message: Message, audit_repo: AuditLogRepository):
-    if not is_admin(message.from_user.id):
+    if not is_admin(message.from_user.id):  # Only full admin
         return
     logs = await audit_repo.get_all(limit=20)
     if not logs:

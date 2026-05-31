@@ -89,3 +89,14 @@ def edit_attendance_keyboard():
         ],
         resize_keyboard=True
     )
+
+
+def sub_admin_keyboard():
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="👥 Xodimlar"), KeyboardButton(text="📋 Hisobotlar")],
+            [KeyboardButton(text="✏️ Davomat tahrirlash"), KeyboardButton(text="📁 Excel export")],
+            [KeyboardButton(text="🗑️ Davomatni o'chirish")],
+        ],
+        resize_keyboard=True
+    )
