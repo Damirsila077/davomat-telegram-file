@@ -153,24 +153,26 @@ async def self_service_pin(message: Message, state: FSMContext, employee_repo: E
         return
 
     employee = await employee_repo.get_by_id(employee_id)
-    today_record = await attendance_repo.get_employee_today(employee_id)
+    today_records = await attendance_repo.get_employee_today(employee_id)
 
     now = datetime.now()
     monthly = await attendance_repo.get_employee_monthly(employee_id, now.year, now.month)
 
     total_month_minutes = sum(r['total_minutes'] or 0 for r in monthly)
-    work_days = len([r for r in monthly if r['clock_in']])
+    work_days = len(set(str(r['attendance_date']) for r in monthly if r['clock_in']))
 
     today_text = "Bugun hali kelmagan"
-    if today_record:
-        ci = today_record['clock_in'].strftime('%H:%M') if today_record['clock_in'] else '-'
-        co = today_record['clock_out'].strftime('%H:%M') if today_record['clock_out'] else 'Hali ketmagan'
-        today_text = f"Kelish: {ci} | Ketish: {co}"
+    if today_records:
+        today_text = ""
+        for i, r in enumerate(today_records, 1):
+            ci = r['clock_in'].strftime('%H:%M') if r['clock_in'] else '-'
+            co = r['clock_out'].strftime('%H:%M') if r['clock_out'] else 'Hali ketmagan'
+            today_text += f"\n  {i}. 🟢 {ci} → 🔴 {co}"
 
     await message.answer(
         f"📊 {employee['full_name']} ma'lumotlari\n"
         f"{'─' * 30}\n"
-        f"📅 Bugun: {today_text}\n\n"
+        f"📅 Bugun:{today_text}\n\n"
         f"📆 Bu oy ({now.strftime('%B %Y')}):\n"
         f"  • Ish kunlari: {work_days} kun\n"
         f"  • Jami ish vaqti: {format_minutes(total_month_minutes)}\n",
