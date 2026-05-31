@@ -156,3 +156,21 @@ class AttendanceRepository:
                 from_date, to_date
             )
             return int(result.split()[-1])
+
+    async def get_by_date(self, employee_id, target_date):
+        async with self.pool.acquire() as conn:
+            return await conn.fetch(
+                """SELECT * FROM attendance
+                   WHERE employee_id = $1 AND attendance_date = $2
+                   ORDER BY clock_in""",
+                employee_id, target_date
+            )
+
+    async def delete_by_employee_date(self, employee_id, target_date):
+        async with self.pool.acquire() as conn:
+            result = await conn.execute(
+                """DELETE FROM attendance
+                   WHERE employee_id = $1 AND attendance_date = $2""",
+                employee_id, target_date
+            )
+            return int(result.split()[-1])
