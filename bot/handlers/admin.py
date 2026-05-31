@@ -74,6 +74,12 @@ async def cmd_start(message: Message):
             f"Davomat boshqaruv tizimi tayyor.",
             reply_markup=admin_main_keyboard()
         )
+    elif is_sub_admin(message.from_user.id):
+        await message.answer(
+            f"👋 Xush kelibsiz, Menejer!\n"
+            f"Davomat boshqaruv tizimi tayyor.",
+            reply_markup=sub_admin_keyboard()
+        )
     else:
         await message.answer(
             "👋 Xush kelibsiz!\n"
@@ -87,6 +93,8 @@ async def go_back(message: Message, state: FSMContext):
     await state.clear()
     if is_admin(message.from_user.id):
         await message.answer("Asosiy menyu:", reply_markup=admin_main_keyboard())
+    elif is_sub_admin(message.from_user.id):
+        await message.answer("Asosiy menyu:", reply_markup=sub_admin_keyboard())
     else:
         await message.answer("Asosiy menyu:", reply_markup=office_main_keyboard())
 
