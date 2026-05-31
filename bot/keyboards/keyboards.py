@@ -17,6 +17,7 @@ def admin_main_keyboard():
             [KeyboardButton(text="👥 Xodimlar"), KeyboardButton(text="📋 Hisobotlar")],
             [KeyboardButton(text="✏️ Davomat tahrirlash"), KeyboardButton(text="📁 Excel export")],
             [KeyboardButton(text="🔐 Ruxsat etilgan akkauntlar"), KeyboardButton(text="📜 Audit log")],
+            [KeyboardButton(text="🗑️ Davomatni o'chirish")],
         ],
         resize_keyboard=True
     )

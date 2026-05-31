@@ -456,3 +456,117 @@ async def audit_log(message: Message, audit_repo: AuditLogRepository):
             f"─ ─ ─\n"
         )
     await message.answer(text, reply_markup=admin_main_keyboard())
+
+
+# ─── Delete Attendance ─────────────────────────────────────────────────────────
+
+class DeleteAttendanceState(StatesGroup):
+    from_date = State()
+    to_date = State()
+    confirm = State()
+
+
+@router.message(F.text == "🗑️ Davomatni o'chirish")
+async def delete_attendance_start(message: Message, state: FSMContext):
+    if not is_admin(message.from_user.id):
+        return
+    await state.set_state(DeleteAttendanceState.from_date)
+    await message.answer(
+        "🗑️ Davomat o'chirish\n\n"
+        "📅 Boshlanish sanasini kiriting:\n"
+        f"(YYYY-MM-DD formatida, masalan: {date.today()})",
+        reply_markup=cancel_keyboard()
+    )
+
+
+@router.message(DeleteAttendanceState.from_date)
+async def delete_att_from_date(message: Message, state: FSMContext):
+    if message.text == "❌ Bekor qilish":
+        await state.clear()
+        await message.answer("Bekor qilindi.", reply_markup=admin_main_keyboard())
+        return
+    try:
+        from_date = datetime.strptime(message.text.strip(), "%Y-%m-%d").date()
+    except ValueError:
+        await message.answer("❌ Format noto'g'ri. YYYY-MM-DD formatida kiriting:")
+        return
+    await state.update_data(from_date=str(from_date))
+    await state.set_state(DeleteAttendanceState.to_date)
+    await message.answer(
+        "📅 Tugash sanasini kiriting:\n"
+        f"(YYYY-MM-DD formatida, masalan: {date.today()})"
+    )
+
+
+@router.message(DeleteAttendanceState.to_date)
+async def delete_att_to_date(message: Message, state: FSMContext, attendance_repo: AttendanceRepository):
+    if message.text == "❌ Bekor qilish":
+        await state.clear()
+        await message.answer("Bekor qilindi.", reply_markup=admin_main_keyboard())
+        return
+    try:
+        to_date = datetime.strptime(message.text.strip(), "%Y-%m-%d").date()
+    except ValueError:
+        await message.answer("❌ Format noto'g'ri. YYYY-MM-DD formatida kiriting:")
+        return
+
+    data = await state.get_data()
+    from_date = datetime.strptime(data['from_date'], "%Y-%m-%d").date()
+
+    if to_date < from_date:
+        await message.answer("❌ Tugash sanasi boshlanish sanasidan oldin bo'lishi mumkin emas!")
+        return
+
+    # Count records to be deleted
+    count = await attendance_repo.count_by_range(from_date, to_date)
+
+    await state.update_data(to_date=str(to_date))
+    await state.set_state(DeleteAttendanceState.confirm)
+
+    from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
+    confirm_kb = ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="✅ Ha, o'chirish"), KeyboardButton(text="❌ Bekor qilish")]
+        ],
+        resize_keyboard=True
+    )
+    await message.answer(
+        f"⚠️ Diqqat!\n\n"
+        f"📅 {from_date} dan {to_date} gacha\n"
+        f"📊 Jami {count} ta yozuv o'chiriladi!\n\n"
+        f"Davom etasizmi?",
+        reply_markup=confirm_kb
+    )
+
+
+@router.message(DeleteAttendanceState.confirm)
+async def delete_att_confirm(message: Message, state: FSMContext, attendance_repo: AttendanceRepository, audit_repo: AuditLogRepository):
+    if message.text == "❌ Bekor qilish":
+        await state.clear()
+        await message.answer("Bekor qilindi.", reply_markup=admin_main_keyboard())
+        return
+
+    if message.text != "✅ Ha, o'chirish":
+        return
+
+    data = await state.get_data()
+    from_date = datetime.strptime(data['from_date'], "%Y-%m-%d").date()
+    to_date = datetime.strptime(data['to_date'], "%Y-%m-%d").date()
+
+    deleted_count = await attendance_repo.delete_by_range(from_date, to_date)
+
+    await audit_repo.log(
+        "ALL",
+        "delete_attendance",
+        f"{from_date} - {to_date}",
+        f"{deleted_count} yozuv o'chirildi",
+        message.from_user.full_name
+    )
+
+    await message.answer(
+        f"✅ Muvaffaqiyatli o'chirildi!\n\n"
+        f"📅 {from_date} dan {to_date} gacha\n"
+        f"🗑️ {deleted_count} ta yozuv o'chirildi.",
+        reply_markup=admin_main_keyboard()
+    )
+    await state.clear()

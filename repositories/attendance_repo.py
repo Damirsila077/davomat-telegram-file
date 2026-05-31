@@ -138,3 +138,21 @@ class AttendanceRepository:
                     new_time, total_minutes, record['id']
                 )
             return old_value
+
+    async def count_by_range(self, from_date, to_date):
+        async with self.pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """SELECT COUNT(*) as cnt FROM attendance
+                   WHERE attendance_date >= $1 AND attendance_date <= $2""",
+                from_date, to_date
+            )
+            return row['cnt']
+
+    async def delete_by_range(self, from_date, to_date):
+        async with self.pool.acquire() as conn:
+            result = await conn.execute(
+                """DELETE FROM attendance
+                   WHERE attendance_date >= $1 AND attendance_date <= $2""",
+                from_date, to_date
+            )
+            return int(result.split()[-1])
