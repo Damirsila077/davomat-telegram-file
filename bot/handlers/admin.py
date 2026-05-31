@@ -57,7 +57,9 @@ class RemoveAccountState(StatesGroup):
 
 # ─── Admin check filter ────────────────────────────────────────────────────────
 
-class AdminFilter(F):
+from aiogram.filters import BaseFilter
+
+class AdminFilter(BaseFilter):
     async def __call__(self, message: Message) -> bool:
         return is_admin(message.from_user.id)
 
